@@ -1,0 +1,44 @@
+import numpy as np
+from scipy.optimize import linear_sum_assignment
+from sklearn.metrics import normalized_mutual_info_score, pair_confusion_matrix
+
+
+def norm(x):
+    return (x - np.min(x)) / (np.max(x) - np.min(x))
+
+
+def cluster_accuracy(y_true, y_pred):
+    y_true = y_true.astype(np.int64)
+    y_pred = y_pred.astype(np.int64)
+    assert y_pred.size == y_true.size
+
+    d = max(y_pred.max(), y_true.max()) + 1
+    w = np.zeros((d, d), dtype=np.int64)
+    for i in range(y_pred.size):
+        w[y_pred[i], y_true[i]] += 1
+
+    ind = linear_sum_assignment(w.max() - w)
+    ind = np.array(ind).T
+    return sum(w[i, j] for i, j in ind) * 1.0 / y_pred.size
+
+
+def adjusted_rand_score(labels_true, labels_pred):
+    (tn, fp), (fn, tp) = pair_confusion_matrix(labels_true, labels_pred)
+    tn = int(tn)
+    tp = int(tp)
+    fp = int(fp)
+    fn = int(fn)
+
+    if fn == 0 and fp == 0:
+        return 1.0
+
+    return 2.0 * (tp * tn - fn * fp) / (
+        (tp + fn) * (fn + tn) + (tp + fp) * (fp + tn)
+    )
+
+
+def compute_score(y_true, y_pred):
+    nmi = normalized_mutual_info_score(y_true, y_pred) * 100
+    ari = adjusted_rand_score(y_true, y_pred) * 100
+    acc = cluster_accuracy(y_true, y_pred) * 100
+    return ari, nmi, acc
